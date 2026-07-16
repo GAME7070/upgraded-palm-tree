@@ -133,4 +133,35 @@ int main() {
     }
     return 0;
 }
+// 新增：菜单3 - 遍历展示所有学生信息
+void showAllStudents(Student *stu_arr, int count) {
+    if (count == 0) {
+        printf("暂无学生记录！\n");
+        return;
+    }
+    printf("\n=== 全部学生成绩列表 ===\n");
+    printf("%-10s %-10s %-6s %-6s %-6s\n", "学号", "姓名", "科1", "科2", "科3");
+    for(int i = 0; i < count; i++) {
+        printf("%-10d %-10s %-6d %-6d %-6d\n", 
+        stu_arr[i].id, stu_arr[i].name, 
+        stu_arr[i].score1, stu_arr[i].score2, stu_arr[i].score3);
+    }
+}
+
+// 新增：菜单2 - 按学号精准查询学生
+void searchStudentById(Student *stu_arr, int count) {
+    int target_id, find_flag = 0;
+    printf("请输入要查询的学生学号：");
+    scanf("%d", &target_id);
+    for(int i = 0; i < count; i++) {
+        if(stu_arr[i].id == target_id) {
+            find_flag = 1;
+            printf("查询结果：学号%d 姓名%s 成绩：%d/%d/%d\n",
+            stu_arr[i].id, stu_arr[i].name,
+            stu_arr[i].score1, stu_arr[i].score2, stu_arr[i].score3);
+            break;
+        }
+    }
+    if(!find_flag) printf("未找到对应学号的学生记录\n");
+}
 
