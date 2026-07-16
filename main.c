@@ -189,3 +189,45 @@ void saveStudentData(Student *stu_arr, int count) {
     fclose(fp);
     printf("已成功保存%d条学生数据\n", count);
 }
+// 新增：按总分降序排序所有学生
+void sortStudentByTotal(Student *stu_arr, int count) {
+    if(count < 2) {
+        printf("学生记录不足2条，无需排序\n");
+        return;
+    }
+    for(int i = 0; i < count - 1; i++) {
+        for(int j = 0; j < count - 1 - i; j++) {
+            // 计算两位学生的总分，对比交换
+            int total_a = stu_arr[j].score1 + stu_arr[j].score2 + stu_arr[j].score3;
+            int total_b = stu_arr[j+1].score1 + stu_arr[j+1].score2 + stu_arr[j+1].score3;
+            if(total_a < total_b) {
+                Student temp = stu_arr[j];
+                stu_arr[j] = stu_arr[j+1];
+                stu_arr[j+1] = temp;
+            }
+        }
+    }
+    printf("已按学生总分从高到低完成排序\n");
+    showAllStudents(stu_arr, count);
+}
+
+// 新增：统计计算平均分、及格率
+void calcStudentStats(Student *stu_arr, int count) {
+    if(count == 0) {
+        printf("暂无数据可统计\n");
+        return;
+    }
+    int sum1 = 0, sum2 = 0, sum3 = 0, pass_cnt = 0;
+    for(int i = 0; i < count; i++) {
+        sum1 += stu_arr[i].score1;
+        sum2 += stu_arr[i].score2;
+        sum3 += stu_arr[i].score3;
+        int total = stu_arr[i].score1 + stu_arr[i].score2 + stu_arr[i].score3;
+        if(total >= 180) pass_cnt++; // 总分180及以上计为及格
+    }
+    printf("=== 统计结果 ===\n");
+    printf("科1平均分：%.1f\n", (float)sum1 / count);
+    printf("科2平均分：%.1f\n", (float)sum2 / count);
+    printf("科3平均分：%.1f\n", (float)sum3 / count);
+    printf("总及格率：%.1f%%\n", (float)pass_cnt / count * 100);
+}
