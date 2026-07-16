@@ -165,3 +165,16 @@ void searchStudentById(Student *stu_arr, int count) {
     if(!find_flag) printf("未找到对应学号的学生记录\n");
 }
 
+// 新增：从文件加载历史学生数据，程序启动时自动调用
+int loadStudentData(Student *stu_arr) {
+    FILE *fp = fopen("student.dat", "rb");
+    if(fp == NULL) return 0; // 首次运行无数据文件，返回0条记录
+    int count = 0;
+    // 循环读取每一条学生记录
+    while(fread(&stu_arr[count], sizeof(Student), 1, fp) == 1) {
+        count++;
+    }
+    fclose(fp);
+    printf("从本地文件成功加载%d条历史学生记录\n", count);
+    return count;
+}
