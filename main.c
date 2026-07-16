@@ -1,233 +1,244 @@
 #include <stdio.h>
 #include <string.h>
-#define MAX_STU 100  // 最大支持100名学生
-#define FILE_NAME "student_data.dat" // 数据持久化文件名
+#include <stdlib.h>
 
-// 定义学生结构体
+#define MAX_STU 100
+#define FILE_NAME "student_data.dat"
+
+// 学生数据实体定义
 typedef struct {
-    char id[15];    // 学号
-    char name[20];  // 姓名
-    float score;    // 成绩
+    char id[15];
+    char name[20];
+    float score;
 } Student;
 
-Student stu_arr[MAX_STU];
-int stu_count = 0;
+// 全局数据管理器，统一封装数据与操作
+typedef struct {
+    Student data[MAX_STU];
+    int count;
+} StuManager;
 
-// 1. 文件读写：加载本地保存的学生数据
-void load_data() {
-    FILE *fp = fopen(FILE_NAME, "rb");
-    if(fp == NULL) return;
-    fread(&stu_count, sizeof(int), 1, fp);
-    fread(stu_arr, sizeof(Student), stu_count, fp);
-    fclose(fp);
+StuManager g_manager;
+
+// -------------------------- 工具函数层：通用输入容错封装 --------------------------
+int input_int(int min, int max) {
+    int num;
+    while (1) {
+        if (scanf("%d", &num) != 1) {
+            // 清空错误输入缓冲区
+            while(getchar() != '\n');
+            printf("输入无效，请输入合法数字：");
+            continue;
+        }
+        // 校验数值范围
+        if (num < min || num > max) {
+            printf("请输入%d~%d之间的有效数字：", min, max);
+            continue;
+        }
+        return num;
+    }
 }
 
-// 文件读写：将内存数据持久化写入本地文件
-void save_data() {
-    FILE *fp = fopen(FILE_NAME, "wb");
-    if(fp == NULL) {
-        printf("保存失败！\n");
+float input_score() {
+    float score;
+    while (1) {
+        if (scanf("%f", &score) != 1) {
+            while(getchar() != '\n');
+            printf("输入无效，请重新输入成绩：");
+            continue;
+        }
+        // 成绩业务规则校验：0-100分
+        if (score < 0 || score > 100) {
+            printf("成绩必须在0~100之间，请重新输入：");
+            continue;
+        }
+        return score;
+    }
+}
+
+void input_str(char *buf, int max_len, char *prompt) {
+    while (1) {
+        printf("%s", prompt);
+        // 限制输入长度，防止缓冲区溢出
+        scanf("%s", buf);
+        if (strlen(buf) >= max_len) {
+            printf("输入过长，最多支持%d位字符，请重新输入\n", max_len-1);
+            continue;
+        }
         return;
     }
-    fwrite(&stu_count, sizeof(int), 1, fp);
-    fwrite(stu_arr, sizeof(Student), stu_count, fp);
-    fclose(fp);
-    printf("数据已保存到本地文件\n");
 }
 
-// 2. 查找功能：按学号查找学生
+// -------------------------- 核心业务层：数据操作封装 --------------------------
 int find_stu_by_id(char *target_id) {
-    for(int i=0; i<stu_count; i++) {
-        if(strcmp(stu_arr[i].id, target_id) == 0) {
-            return i; // 返回学生在数组中的下标
+    for (int i = 0; i < g_manager.count; i++) {
+        if (strcmp(g_manager.data[i].id, target_id) == 0) {
+            return i;
         }
     }
     return -1;
 }
 
-// 3. 排序功能：按成绩从高到低排序
 void sort_by_score() {
-    for(int i=0; i<stu_count-1; i++) {
-        for(int j=0; j<stu_count-1-i; j++) {
-            if(stu_arr[j].score < stu_arr[j+1].score) {
-                Student temp = stu_arr[j];
-                stu_arr[j] = stu_arr[j+1];
-                stu_arr[j+1] = temp;
+    for (int i = 0; i < g_manager.count - 1; i++) {
+        for (int j = 0; j < g_manager.count - 1 - i; j++) {
+            if (g_manager.data[j].score < g_manager.data[j+1].score) {
+                Student temp = g_manager.data[j];
+                g_manager.data[j] = g_manager.data[j+1];
+                g_manager.data[j+1] = temp;
             }
         }
     }
-    printf("已按成绩降序排序完成！\n");
+    printf("✅ 已按成绩降序排序完成\n");
 }
 
-// 添加学生信息
+void stat_analysis() {
+    if (g_manager.count == 0) {
+        printf("暂无学生数据，无法统计\n");
+        return;
+    }
+    float total = 0, max_s = 0, min_s = 100;
+    int pass_cnt = 0;
+    for (int i = 0; i < g_manager.count; i++) {
+        float s = g_manager.data[i].score;
+        total += s;
+        if (s > max_s) max_s = s;
+        if (s < min_s) min_s = s;
+        if (s >= 60) pass_cnt++;
+    }
+    printf("\n📊 成绩统计分析报告\n");
+    printf("总人数：%d | 平均分：%.1f\n", g_manager.count, total/g_manager.count);
+    printf("最高分：%.1f | 最低分：%.1f\n", max_s, min_s);
+    printf("及格人数：%d | 及格率：%.1f%%\n", pass_cnt, pass_cnt*100.0/g_manager.count);
+}
+
+// -------------------------- 持久化层：文件读写封装 --------------------------
+void load_data() {
+    FILE *fp = fopen(FILE_NAME, "rb");
+    if (fp == NULL) {
+        printf("ℹ️  首次运行，暂无历史数据文件\n");
+        g_manager.count = 0;
+        return;
+    }
+    fread(&g_manager.count, sizeof(int), 1, fp);
+    fread(g_manager.data, sizeof(Student), g_manager.count, fp);
+    fclose(fp);
+    printf("✅ 成功加载%d条历史学生数据\n", g_manager.count);
+}
+
+void save_data() {
+    FILE *fp = fopen(FILE_NAME, "wb");
+    if (fp == NULL) {
+        printf("❌ 数据保存失败，请检查目录权限\n");
+        return;
+    }
+    fwrite(&g_manager.count, sizeof(int), 1, fp);
+    fwrite(g_manager.data, sizeof(Student), g_manager.count, fp);
+    fclose(fp);
+}
+
+// -------------------------- 功能入口层：业务操作实现 --------------------------
 void add_stu() {
-    if(stu_count >= MAX_STU) {
-        printf("人数已满，无法添加！\n");
+    if (g_manager.count >= MAX_STU) {
+        printf("❌ 学生人数已达上限%d，无法添加\n", MAX_STU);
         return;
     }
     Student new_stu;
-    printf("请输入学号：");
-    scanf("%s", new_stu.id);
-    // 查重校验
-    if(find_stu_by_id(new_stu.id) != -1) {
-        printf("该学号已存在！\n");
+    input_str(new_stu.id, 15, "请输入学号：");
+    if (find_stu_by_id(new_stu.id) != -1) {
+        printf("❌ 该学号已存在，请勿重复添加\n");
         return;
     }
-    printf("请输入姓名：");
-    scanf("%s", new_stu.name);
+    input_str(new_stu.name, 20, "请输入姓名：");
     printf("请输入成绩：");
-    scanf("%f", &new_stu.score);
-    stu_arr[stu_count++] = new_stu;
-    printf("添加成功！\n");
+    new_stu.score = input_score();
+    g_manager.data[g_manager.count++] = new_stu;
+    printf("✅ 学生信息添加成功\n");
     save_data();
 }
 
-// 查询学生信息
-void query_stu() {
+void del_stu() {
     char target_id[15];
-    printf("请输入要查询的学号：");
-    scanf("%s", target_id);
-    int index = find_stu_by_id(target_id);
-    if(index == -1) {
-        printf("未找到该学生！\n");
+    input_str(target_id, 15, "请输入要删除的学号：");
+    int idx = find_stu_by_id(target_id);
+    if (idx == -1) {
+        printf("❌ 未找到该学生\n");
         return;
     }
-    printf("查询结果：学号=%s 姓名=%s 成绩=%.1f\n", 
-            stu_arr[index].id, stu_arr[index].name, stu_arr[index].score);
+    // 后续数据前移覆盖待删除元素
+    for (int i = idx; i < g_manager.count - 1; i++) {
+        g_manager.data[i] = g_manager.data[i+1];
+    }
+    g_manager.count--;
+    printf("✅ 学生信息删除成功\n");
+    save_data();
 }
 
-// 打印全部学生
+void modify_stu() {
+    char target_id[15];
+    input_str(target_id, 15, "请输入要修改的学号：");
+    int idx = find_stu_by_id(target_id);
+    if (idx == -1) {
+        printf("❌ 未找到该学生\n");
+        return;
+    }
+    printf("当前信息：学号=%s 姓名=%s 成绩=%.1f\n",
+           g_manager.data[idx].id, g_manager.data[idx].name, g_manager.data[idx].score);
+    input_str(g_manager.data[idx].name, 20, "请输入新姓名：");
+    printf("请输入新成绩：");
+    g_manager.data[idx].score = input_score();
+    printf("✅ 学生信息修改成功\n");
+    save_data();
+}
+
+void query_stu() {
+    char target_id[15];
+    input_str(target_id, 15, "请输入要查询的学号：");
+    int idx = find_stu_by_id(target_id);
+    if (idx == -1) {
+        printf("❌ 未找到该学生\n");
+        return;
+    }
+    printf("🔍 查询结果：学号=%s | 姓名=%s | 成绩=%.1f\n",
+           g_manager.data[idx].id, g_manager.data[idx].name, g_manager.data[idx].score);
+}
+
 void show_all() {
-    printf("\n=== 全部学生列表 ===\n");
-    for(int i=0; i<stu_count; i++) {
-        printf("学号：%s | 姓名：%s | 成绩：%.1f\n",
-                stu_arr[i].id, stu_arr[i].name, stu_arr[i].score);
+    if (g_manager.count == 0) {
+        printf("暂无学生数据\n");
+        return;
+    }
+    printf("\n==== 全部学生列表 ====\n");
+    for (int i = 0; i < g_manager.count; i++) {
+        printf("[%d] 学号：%s | 姓名：%s | 成绩：%.1f\n",
+               i+1, g_manager.data[i].id, g_manager.data[i].name, g_manager.data[i].score);
     }
 }
 
-// 主菜单
 void menu() {
-    printf("\n==== 多功能学生成绩管理系统 ====\n");
-    printf("1. 添加学生信息\n");
-    printf("2. 按学号查询学生\n");
-    printf("3. 按成绩排序\n");
-    printf("4. 显示全部学生\n");
-    printf("5. 退出系统\n");
+    printf("\n==== 学生成绩管理系统 V2.0 重构版 ====\n");
+    printf("1. 添加学生信息\n2. 查询学生信息\n3. 修改学生信息\n4. 删除学生信息\n");
+    printf("5. 按成绩降序排序\n6. 显示全部学生\n7. 成绩统计分析\n8. 退出系统\n");
     printf("请输入操作序号：");
 }
 
 int main() {
-    load_data(); // 程序启动自动加载本地历史数据
+    load_data();
     int op;
-    while(1) {
+    while (1) {
         menu();
-        scanf("%d", &op);
-        switch(op) {
+        op = input_int(1, 8);
+        switch (op) {
             case 1: add_stu(); break;
             case 2: query_stu(); break;
-            case 3: sort_by_score(); break;
-            case 4: show_all(); break;
-            case 5: save_data(); printf("程序退出\n"); return 0;
-            default: printf("输入无效，请重新选择！\n");
+            case 3: modify_stu(); break;
+            case 4: del_stu(); break;
+            case 5: sort_by_score(); break;
+            case 6: show_all(); break;
+            case 7: stat_analysis(); break;
+            case 8: save_data(); printf("👋 数据已保存，程序正常退出\n"); return 0;
+            default: printf("无效操作\n");
         }
     }
     return 0;
-}
-// 新增：菜单3 - 遍历展示所有学生信息
-void showAllStudents(Student *stu_arr, int count) {
-    if (count == 0) {
-        printf("暂无学生记录！\n");
-        return;
-    }
-    printf("\n=== 全部学生成绩列表 ===\n");
-    printf("%-10s %-10s %-6s %-6s %-6s\n", "学号", "姓名", "科1", "科2", "科3");
-    for(int i = 0; i < count; i++) {
-        printf("%-10d %-10s %-6d %-6d %-6d\n", 
-        stu_arr[i].id, stu_arr[i].name, 
-        stu_arr[i].score1, stu_arr[i].score2, stu_arr[i].score3);
-    }
-}
-
-// 新增：菜单2 - 按学号精准查询学生
-void searchStudentById(Student *stu_arr, int count) {
-    int target_id, find_flag = 0;
-    printf("请输入要查询的学生学号：");
-    scanf("%d", &target_id);
-    for(int i = 0; i < count; i++) {
-        if(stu_arr[i].id == target_id) {
-            find_flag = 1;
-            printf("查询结果：学号%d 姓名%s 成绩：%d/%d/%d\n",
-            stu_arr[i].id, stu_arr[i].name,
-            stu_arr[i].score1, stu_arr[i].score2, stu_arr[i].score3);
-            break;
-        }
-    }
-    if(!find_flag) printf("未找到对应学号的学生记录\n");
-}
-
-// 新增：从文件加载历史学生数据，程序启动时自动调用
-int loadStudentData(Student *stu_arr) {
-    FILE *fp = fopen("student.dat", "rb");
-    if(fp == NULL) return 0; // 首次运行无数据文件，返回0条记录
-    int count = 0;
-    // 循环读取每一条学生记录
-    while(fread(&stu_arr[count], sizeof(Student), 1, fp) == 1) {
-        count++;
-    }
-    fclose(fp);
-    printf("从本地文件成功加载%d条历史学生记录\n", count);
-    return count;
-}
-// 新增：退出程序前自动保存所有数据到本地文件
-void saveStudentData(Student *stu_arr, int count) {
-    FILE *fp = fopen("student.dat", "wb");
-    if(fp == NULL) {
-        printf("数据文件写入失败！\n");
-        return;
-    }
-    fwrite(stu_arr, sizeof(Student), count, fp);
-    fclose(fp);
-    printf("已成功保存%d条学生数据\n", count);
-}
-// 新增：按总分降序排序所有学生
-void sortStudentByTotal(Student *stu_arr, int count) {
-    if(count < 2) {
-        printf("学生记录不足2条，无需排序\n");
-        return;
-    }
-    for(int i = 0; i < count - 1; i++) {
-        for(int j = 0; j < count - 1 - i; j++) {
-            // 计算两位学生的总分，对比交换
-            int total_a = stu_arr[j].score1 + stu_arr[j].score2 + stu_arr[j].score3;
-            int total_b = stu_arr[j+1].score1 + stu_arr[j+1].score2 + stu_arr[j+1].score3;
-            if(total_a < total_b) {
-                Student temp = stu_arr[j];
-                stu_arr[j] = stu_arr[j+1];
-                stu_arr[j+1] = temp;
-            }
-        }
-    }
-    printf("已按学生总分从高到低完成排序\n");
-    showAllStudents(stu_arr, count);
-}
-
-// 新增：统计计算平均分、及格率
-void calcStudentStats(Student *stu_arr, int count) {
-    if(count == 0) {
-        printf("暂无数据可统计\n");
-        return;
-    }
-    int sum1 = 0, sum2 = 0, sum3 = 0, pass_cnt = 0;
-    for(int i = 0; i < count; i++) {
-        sum1 += stu_arr[i].score1;
-        sum2 += stu_arr[i].score2;
-        sum3 += stu_arr[i].score3;
-        int total = stu_arr[i].score1 + stu_arr[i].score2 + stu_arr[i].score3;
-        if(total >= 180) pass_cnt++; // 总分180及以上计为及格
-    }
-    printf("=== 统计结果 ===\n");
-    printf("科1平均分：%.1f\n", (float)sum1 / count);
-    printf("科2平均分：%.1f\n", (float)sum2 / count);
-    printf("科3平均分：%.1f\n", (float)sum3 / count);
-    printf("总及格率：%.1f%%\n", (float)pass_cnt / count * 100);
 }
