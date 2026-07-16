@@ -178,3 +178,14 @@ int loadStudentData(Student *stu_arr) {
     printf("从本地文件成功加载%d条历史学生记录\n", count);
     return count;
 }
+// 新增：退出程序前自动保存所有数据到本地文件
+void saveStudentData(Student *stu_arr, int count) {
+    FILE *fp = fopen("student.dat", "wb");
+    if(fp == NULL) {
+        printf("数据文件写入失败！\n");
+        return;
+    }
+    fwrite(stu_arr, sizeof(Student), count, fp);
+    fclose(fp);
+    printf("已成功保存%d条学生数据\n", count);
+}
